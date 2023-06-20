@@ -184,8 +184,11 @@ class CPPCompiler(CLikeCompiler, Compiler):
         })
         return opts
 
-
 class ClangCPPCompiler(ClangCompiler, CPPCompiler):
+
+    _CPP23_VERSION = '>=12.0.0'
+    _CPP26_VERSION = '>=17.0.0'
+
     def __init__(self, ccache: T.List[str], exelist: T.List[str], version: str, for_machine: MachineChoice, is_cross: bool,
                  info: 'MachineInfo', exe_wrapper: T.Optional['ExternalProgram'] = None,
                  linker: T.Optional['DynamicLinker'] = None,
@@ -212,11 +215,18 @@ class ClangCPPCompiler(ClangCompiler, CPPCompiler):
             ),
             key.evolve('rtti'): coredata.UserBooleanOption('Enable RTTI', True),
         })
-        opts[key.evolve('std')].choices = [
+        cppstd_choices = [
             'none', 'c++98', 'c++03', 'c++11', 'c++14', 'c++17', 'c++1z',
             'c++2a', 'c++20', 'gnu++11', 'gnu++14', 'gnu++17', 'gnu++1z',
             'gnu++2a', 'gnu++20',
         ]
+        if version_compare(self.version, self._CPP23_VERSION):
+            cppstd_choices.append('c++23')
+            cppstd_choices.append('gnu++23')
+        if version_compare(self.version, self._CPP26_VERSION):
+            cppstd_choices.append('c++26')
+            cppstd_choices.append('gnu++26')
+        opts[key.evolve('std')].choices = cppstd_choices
         if self.info.is_windows() or self.info.is_cygwin():
             opts.update({
                 key.evolve('winlibs'): coredata.UserArrayOption(
@@ -268,6 +278,13 @@ class ArmLtdClangCPPCompiler(ClangCPPCompiler):
 
 
 class AppleClangCPPCompiler(ClangCPPCompiler):
+
+    _CPP23_VERSION = '>=13.0.0'
+
+    # We don't know which XCode version will include LLVM 17 yet, so use
+    # something absurd.
+    _CPP26_VERSION = '>=99.0.0'
+
     def language_stdlib_only_link_flags(self, env: 'Environment') -> T.List[str]:
         # We need to apply the search prefix here, as these link arguments may
         # be passed to a different compiler with a different set of default
@@ -396,6 +413,9 @@ class GnuCPPCompiler(GnuCompiler, CPPCompiler):
         if version_compare(self.version, '>=12.2.0'):
             cppstd_choices.append('c++23')
             cppstd_choices.append('gnu++23')
+        if version_compare(self.version, '>=14.0.0'):
+            cppstd_choices.append('c++26')
+            cppstd_choices.append('gnu++26')
         opts[key].choices = cppstd_choices
         if self.info.is_windows() or self.info.is_cygwin():
             opts.update({
